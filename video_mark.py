@@ -182,11 +182,12 @@ class DurationWindow(Window):
                             cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
 
             if len(self.keep_boxs)>0:
-                cv2.rectangle(self._show_img, (int(self.keep_boxs[0]*img_shape[1]),int(self.keep_boxs[1]*img_shape[0])),
-                              (int(self.keep_boxs[2]*img_shape[1]),int(self.keep_boxs[3]*img_shape[0])), (0, 0, 0))
-                cv2.rectangle(self._show_img,
-                              (int(self.keep_boxs[0] * img_shape[1])+1, int(self.keep_boxs[1] * img_shape[0])+1),
-                              (int(self.keep_boxs[2] * img_shape[1])-1, int(self.keep_boxs[3] * img_shape[0])-1), (255, 255, 255))
+                for keep_boxs in self.keep_boxs:
+                    cv2.rectangle(self._show_img, (int(keep_boxs[0]*img_shape[1]),int(keep_boxs[1]*img_shape[0])),
+                                  (int(keep_boxs[2]*img_shape[1]),int(keep_boxs[3]*img_shape[0])), (0, 0, 0))
+                    cv2.rectangle(self._show_img,
+                                  (int(keep_boxs[0] * img_shape[1])+1, int(keep_boxs[1] * img_shape[0])+1),
+                                  (int(keep_boxs[2] * img_shape[1])-1, int(keep_boxs[3] * img_shape[0])-1), (255, 255, 255))
     def draw_call_back(self, event, x, y, flags, param):
         '''实现了鼠标的画框操作
 
@@ -219,7 +220,7 @@ class DurationWindow(Window):
                                          right_bottom_point[0] / w, right_bottom_point[1] / h,
                                          self.mark_cls]
                         if call_back_box[-1] == -1:#标记点单独保存
-                            self.keep_boxs=call_back_box
+                            self.keep_boxs.append(call_back_box)
                         else:
                             self.label_datas.append(call_back_box)
                 self.left_top_point = None
@@ -287,7 +288,7 @@ class DurationWindow(Window):
                     self.loading_label(self.par_window.label_datas[tmp_frame_idx].copy())
                     self.par_window.frame_idx = tmp_frame_idx
                     break
-        elif key == ord("a"):#上一帧
+        elif key == ord("a"):#上一帧,如果有keep box,则更新母窗口的保存数据
             tmp_frame_idx = self.par_window.frame_idx
             self.update_par_window_labels()
             tmp_frame_idx -= 1
@@ -315,11 +316,18 @@ class DurationWindow(Window):
                     del self.par_window.label_datas[tmp_frame_idx]
         # 传统训练数据的保存
         elif key == ord("0"):
+            # if len(self.label_datas) == 0:
+            #     if self.par_window.frame_idx in self.par_window.label_datas.keys():
+            #         del self.par_window.label_datas[self.par_window.frame_idx]
+            #     else:
+            #         pass
+            # else:
+            #     self.par_window.label_datas[self.par_window.frame_idx] = self.label_datas.copy()
             img_shape = self._show_img.shape
             frame_idx = self.par_window.frame_idx
             file_name = ".".join(os.path.basename(self.par_window.video_file_path).split(".")[:-1])
-            video_file_path = "G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2/data/%s__%i.mp4"%(file_name,frame_idx)
-            label_file_path = "G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2/label/%s__%i.txt"%(file_name,frame_idx)
+            video_file_path = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2/data/%s__%i.mp4"%(file_name,frame_idx)
+            label_file_path = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2/label/%s__%i.txt"%(file_name,frame_idx)
             writer = cv2.VideoWriter(video_file_path,cv2.VideoWriter_fourcc(*'DIVX'),25,(img_shape[1],img_shape[0]))
             for img in self.video_datas:
                 writer.write(img)
@@ -329,11 +337,6 @@ class DurationWindow(Window):
                 label_str = "%f,%f,%f,%f,%s"%(label[0],label[1],label[2],label[3],label[4])
                 label_f.write(label_str+'\n')
             label_f.close()
-
-
-
-
-
 
 
     def show(self):
@@ -364,11 +367,13 @@ class DurationWindow(Window):
             for label_data in labels:
                 if label_data in self.label_datas:
                     continue
-                if (label_data[0]<self.keep_boxs[0] and
-                    label_data[1]<self.keep_boxs[1] and
-                    label_data[2]>self.keep_boxs[2] and
-                    label_data[3]>self.keep_boxs[3]):
-                    self.label_datas.append(label_data)
+                for keep_boxs in self.keep_boxs:
+                    if (label_data[0]<keep_boxs[0] and
+                        label_data[1]<keep_boxs[1] and
+                        label_data[2]>keep_boxs[2] and
+                        label_data[3]>keep_boxs[3]):
+                        self.label_datas.append(label_data)
+                        break
         else:
             self.label_datas = labels
     #根据帧号更新本windows的数据(包括img和label)
@@ -385,7 +390,7 @@ class DurationWindow(Window):
         self.par_window.frame_idx = tmp_frame_idx
 
     def update_par_window_labels(self):
-        if len(self.keep_boxs) > 0:
+        if len(self.keep_boxs) > 0:#在进行前后帧移动时如果没有打keep标记则不对母窗口的label做任何删减
             if len(self.label_datas) == 0:
                 if self.par_window.frame_idx in self.par_window.label_datas.keys():
                     del self.par_window.label_datas[self.par_window.frame_idx]
@@ -397,10 +402,10 @@ class DurationWindow(Window):
 
     def clear_data(self):
         self.keep_boxs=[]
-        self.label_datas.clear()
-        self.left_top_point=None
-        self.right_bottom_point=None
-        self.box_select_idx = 0
+        # self.label_datas.clear()
+        # self.left_top_point=None
+        # self.right_bottom_point=None
+        # self.box_select_idx = 0
 
 class VideoPlayer(Window):
     def __init__(self,window_name):
@@ -434,9 +439,12 @@ class VideoPlayer(Window):
             for box_idx, box in enumerate(labels):
                 cur_box = box.copy()
                 cur_box[:4] = (np.array(cur_box[:4])* (img_shape[1], img_shape[0], img_shape[1], img_shape[0])).astype(np.int)
-                cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (0, 255, 0))
                 cv2.putText(self._show_img, str(cur_box[4]), (cur_box[0], cur_box[1] + 22), cv2.FONT_HERSHEY_COMPLEX, 1,
                                 (0, 255, 0))
+                if cur_box[4] == "smoke":
+                    cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (255, 0,0))
+                else:
+                    cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (0, 255, 0))
 
     def loading_data(self,resize_shape=None):
         self.video_datas = data_io.video_load(self.video_file_path,resize_shape)
@@ -465,6 +473,10 @@ class VideoPlayer(Window):
         elif key == ord("q"):#推出当前视频循环,进入下一个视频
             self.show_done = True
         elif key == ord("`"):
+            # for idx in list(self.label_datas.keys()):
+            #     for label_idx,label_data in enumerate(self.label_datas[idx]):
+            #         if label_data[-1] == "smoke":
+            #             self.label_datas[idx].pop(label_idx)
             self.label_datas.clear()
         elif key == ord("="):#重新读取原label文件
             self.loading_label(self.org_label_file)
@@ -494,15 +506,17 @@ class VideoPlayer(Window):
 
 if __name__ == '__main__':
     import os
-    video_file_list = data_io.get_file_list("G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\smoke_video")
-    label_dir = "G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\video_labels_org"
-    save_dir = "G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\video_labels"
+    import shutil
+    video_file_list = data_io.get_file_list("D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\smoke_video")
+    label_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\video_labels_org"
+    save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2\\video_label"
 
     video_mark = VideoPlayer("video player")
     video_idx = 0
     for video_file_path in video_file_list:
-        if video_idx<0:
+        if video_idx<275:
             video_idx+=1
+            # shutil.copy(video_file_path,"G:\data\smoke_car/")
             continue
         print("||video idx: %i|video file name: %s||"%(video_idx,video_file_path))
         video_idx+=1
@@ -521,6 +535,8 @@ if __name__ == '__main__':
         if os.path.exists(label_file_path):
             video_mark.org_show = False
             video_mark.loading_label(label_file_path)
+            # if len(video_mark.label_datas)<=0:
+            #     continue
         else:
             video_mark.org_show = True
 
