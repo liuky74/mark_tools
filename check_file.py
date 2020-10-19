@@ -1,3 +1,5 @@
+# 检查label文件与data文件是否一一对应
+
 import os
 label_dir= "G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2\label"
 data_dir="G:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2\data"

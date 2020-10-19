@@ -33,6 +33,10 @@ def video_load(path,resize = None):
         video_datas.append(frame)
     return video_datas
 
+def get_file_name(file_path):
+    file_name = ".".join(os.path.basename(file_path).split(".")[:-1])
+    return file_name
+
 def label_load(path,shape = None):
     if not os.path.exists(path):
         print("修改后的label文件不存在")
@@ -59,6 +63,8 @@ def label_load(path,shape = None):
             label = box.tolist()
             label.append(cls_str)
             labels.append(label)
+    if frame_idx is None and len(labels)>0:
+        return labels
     return total_labels
 
 def label_save(total_labels,path):

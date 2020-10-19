@@ -13,8 +13,15 @@ X_SUCESS = "x success"
 
 def make_ids(frame_idx):
     frame_ids = []
-    for stride in range(12):
-        frame_idx-=stride
+    # for stride in range(12):
+    #     frame_idx-=stride
+    #     frame_ids.append(frame_idx)
+    frame_ids.append(frame_idx)
+    for stride in range(5):
+        frame_idx-= 2
+        frame_ids.append(frame_idx)
+    for stride in range(4,4+6):
+        frame_idx-= stride
         frame_ids.append(frame_idx)
 
     frame_ids.reverse()
@@ -155,6 +162,12 @@ class DurationWindow(Window):
         self.keep_label_datas = []
         # 画框的框类别
         self.mark_cls = None
+        self.data_save_dir = None
+        self.label_save_dir = None
+
+    def menber_init(self,data_save_dir,label_save_dir):
+        self.data_save_dir = data_save_dir
+        self.label_save_dir = label_save_dir
 
     def draw(self):
         if (self._show_img is None) or (self.label_datas is None):
@@ -325,18 +338,22 @@ class DurationWindow(Window):
             #     self.par_window.label_datas[self.par_window.frame_idx] = self.label_datas.copy()
             img_shape = self._show_img.shape
             frame_idx = self.par_window.frame_idx
-            file_name = ".".join(os.path.basename(self.par_window.video_file_path).split(".")[:-1])
-            video_file_path = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2/data/%s__%i.mp4"%(file_name,frame_idx)
-            label_file_path = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2/label/%s__%i.txt"%(file_name,frame_idx)
-            writer = cv2.VideoWriter(video_file_path,cv2.VideoWriter_fourcc(*'DIVX'),25,(img_shape[1],img_shape[0]))
-            for img in self.video_datas:
-                writer.write(img)
-            writer.release()
-            label_f = open(label_file_path,"w",encoding="utf-8")
-            for label in self.label_datas:
-                label_str = "%f,%f,%f,%f,%s"%(label[0],label[1],label[2],label[3],label[4])
-                label_f.write(label_str+'\n')
-            label_f.close()
+            if frame_idx<24:
+                print("frame idx 太小，无法保存")
+            else:
+                file_name = ".".join(os.path.basename(self.par_window.video_file_path).split(".")[:-1])
+
+                video_file_path = self.data_save_dir+"/%s__%i.mp4"%(file_name,frame_idx)
+                label_file_path = self.label_save_dir+"/%s__%i.txt"%(file_name,frame_idx)
+                writer = cv2.VideoWriter(video_file_path,cv2.VideoWriter_fourcc(*'DIVX'),25,(img_shape[1],img_shape[0]))
+                for img in self.video_datas:
+                    writer.write(img)
+                writer.release()
+                label_f = open(label_file_path,"w",encoding="utf-8")
+                for label in self.label_datas:
+                    label_str = "%f,%f,%f,%f,%s"%(label[0],label[1],label[2],label[3],label[4])
+                    label_f.write(label_str+'\n')
+                label_f.close()
 
 
     def show(self):
@@ -417,9 +434,9 @@ class VideoPlayer(Window):
         self.video_file_path = None
         self.org_show = True
         self.do_draw = True
-        self.menber_init()
 
-    def menber_init(self,delay = 35,duration = 12,stride = 2):
+    def menber_init(self,duration_data_save_dir,duration_label_save_dir,delay = 35,duration = 12,stride = 2):
+        self.duration_window.menber_init(duration_data_save_dir,duration_label_save_dir)
         self.duration = duration
         self.stride = stride
         self.delay = delay
@@ -427,6 +444,7 @@ class VideoPlayer(Window):
         self.label_datas = {}
         self.frame_idx = None
         self._show_img = None
+
 
     def draw(self,labels):
         img_shape = self._show_img.shape[:2]
@@ -509,12 +527,17 @@ if __name__ == '__main__':
     import shutil
     video_file_list = data_io.get_file_list("D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\smoke_video")
     label_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\video_labels_org"
-    save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_2\\video_label"
+    video_label_save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_3\\video_label"
+    duration_data_save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata/train_data_3/data"
+    duration_label_save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_3/label"
 
     video_mark = VideoPlayer("video player")
+    video_mark.menber_init(duration_data_save_dir=duration_data_save_dir,
+                           duration_label_save_dir=duration_label_save_dir)
+
     video_idx = 0
     for video_file_path in video_file_list:
-        if video_idx<275:
+        if video_idx<6: # smoke car：275
             video_idx+=1
             # shutil.copy(video_file_path,"G:\data\smoke_car/")
             continue
@@ -530,14 +553,14 @@ if __name__ == '__main__':
         else:
             continue
 
-        label_file_path = os.path.join(save_dir,file_name+'.txt')
+        label_file_path = os.path.join(video_label_save_dir,file_name+'.txt')
         video_mark.save_label_file = label_file_path
         if os.path.exists(label_file_path):
             video_mark.org_show = False
             video_mark.loading_label(label_file_path)
             # if len(video_mark.label_datas)<=0:
             #     continue
-        else:
+        else:# video labelfile不存在的时候则读取原始数据
             video_mark.org_show = True
 
         video_datas = video_mark.loading_data((1280,720))
