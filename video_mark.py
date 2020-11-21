@@ -10,12 +10,13 @@ for idx,cls in enumerate(ALL_CLS):
 
 X_SUCESS = "x success"
 
-
+# 生成短视频
 def make_ids(frame_idx):
     frame_ids = []
     # for stride in range(12):
-    #     frame_idx-=stride
-    #     frame_ids.append(frame_idx)
+    #     # frame_idx-=stride*2
+    #     frame_ids.append(frame_idx-stride*2)
+
     frame_ids.append(frame_idx)
     for stride in range(5):
         frame_idx-= 2
@@ -23,6 +24,7 @@ def make_ids(frame_idx):
     for stride in range(4,4+6):
         frame_idx-= stride
         frame_ids.append(frame_idx)
+
 
     frame_ids.reverse()
     return frame_ids
@@ -156,9 +158,9 @@ class DurationWindow(Window):
         # 画框过程中保存临时框的坐标
         self.left_top_point = None
         self.right_bottom_point = None
-        # 包含下表中box的box将会得到保留
+        # 用来保存标记框, 包含下表中的box的目标框将会保留到其他帧中直到手动删除
         self.keep_boxs = []
-        # 保留的box
+        # 保留的box,即包含了上面标记框的目标框会保存在这里
         self.keep_label_datas = []
         # 画框的框类别
         self.mark_cls = None
@@ -253,8 +255,8 @@ class DurationWindow(Window):
         for idx,cls in enumerate(ALL_CLS):
             if key == ord(str(idx)):
                 self.mark_cls = cls
-        if key == ord("m"):
-            self.mark_cls = -1
+        if key == ord("m"):  # 选择标记,按m后标记出来的框是标记框,所有能包含这个标记框的目标框会被保留,其余删除
+            self.mark_cls = -1  # -1表示当前框是标记框
         if key == ord("w"):
             if self.box_select_idx>=1:
                 self.box_select_idx-=1
@@ -263,17 +265,17 @@ class DurationWindow(Window):
                 self.box_select_idx+=1
         elif key == ord("r"):
             self.del_box()
-        elif key == ord("`"):
+        elif key == ord("`"):  #清除标记框
             self.clear_data()
-        elif key == ord(" "):
+        elif key == ord(" "):  #恢复暂停
             self.show_done = True
             self.keep_boxs.clear()
-        elif key == ord("\\"):
+        elif key == ord("\\"): #切换是否画框
             self.do_draw= not self.do_draw
 
-        elif key == ord("k"):
+        elif key == ord("k"): # 将当前画面的框保持,当切换到别的画面时这些框也会显示
             self.keep_label_datas = self.label_datas.copy()
-        elif key == ord("l"):
+        elif key == ord("l"): # 取出保持的框数据
             self.keep_label_datas.clear()
         elif key == ord("x"):#跳到最近得下一帧(含有box)
             tmp_frame_idx = self.par_window.frame_idx
@@ -329,13 +331,13 @@ class DurationWindow(Window):
                     del self.par_window.label_datas[tmp_frame_idx]
         # 传统训练数据的保存
         elif key == ord("0"):
-            # if len(self.label_datas) == 0:
-            #     if self.par_window.frame_idx in self.par_window.label_datas.keys():
-            #         del self.par_window.label_datas[self.par_window.frame_idx]
-            #     else:
-            #         pass
-            # else:
-            #     self.par_window.label_datas[self.par_window.frame_idx] = self.label_datas.copy()
+            if len(self.label_datas) == 0:
+                if self.par_window.frame_idx in self.par_window.label_datas.keys():
+                    del self.par_window.label_datas[self.par_window.frame_idx]
+                else:
+                    pass
+            else:
+                self.par_window.label_datas[self.par_window.frame_idx] = self.label_datas.copy()
             img_shape = self._show_img.shape
             frame_idx = self.par_window.frame_idx
             if frame_idx<24:
@@ -459,10 +461,10 @@ class VideoPlayer(Window):
                 cur_box[:4] = (np.array(cur_box[:4])* (img_shape[1], img_shape[0], img_shape[1], img_shape[0])).astype(np.int)
                 cv2.putText(self._show_img, str(cur_box[4]), (cur_box[0], cur_box[1] + 22), cv2.FONT_HERSHEY_COMPLEX, 1,
                                 (0, 255, 0))
-                if cur_box[4] == "smoke":
-                    cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (255, 0,0))
-                else:
-                    cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (0, 255, 0))
+                # if cur_box[4] == "smoke":
+                #     cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (255, 0,0))
+                # else:
+                cv2.rectangle(self._show_img, (cur_box[0], cur_box[1]), (cur_box[2], cur_box[3]), (0, 255, 0))
 
     def loading_data(self,resize_shape=None):
         self.video_datas = data_io.video_load(self.video_file_path,resize_shape)
@@ -526,7 +528,7 @@ if __name__ == '__main__':
     import os
     import shutil
     video_file_list = data_io.get_file_list("D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\smoke_video")
-    label_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\video_labels_org"
+    org_video_label_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\video_labels_org"
     video_label_save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_3\\video_label"
     duration_data_save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata/train_data_3/data"
     duration_label_save_dir = "D:\data\smoke_car\RFB用黑烟车数据\\1005mydata\\train_data_3/label"
@@ -537,7 +539,7 @@ if __name__ == '__main__':
 
     video_idx = 0
     for video_file_path in video_file_list:
-        if video_idx<6: # smoke car：275
+        if video_idx<20: # smoke car：275
             video_idx+=1
             # shutil.copy(video_file_path,"G:\data\smoke_car/")
             continue
@@ -545,8 +547,8 @@ if __name__ == '__main__':
         video_idx+=1
         video_mark.video_file_path = video_file_path
         file_name = ".".join(os.path.basename(video_file_path).split(".")[:-1])
-
-        label_file_path = os.path.join(label_dir, file_name + '.txt')
+        #如果有已经标记完的数据则读取
+        label_file_path = os.path.join(org_video_label_dir, file_name + '.txt')
         if os.path.exists(label_file_path):
             video_mark.org_label_file = label_file_path
             video_mark.loading_label(label_file_path)
@@ -563,5 +565,5 @@ if __name__ == '__main__':
         else:# video labelfile不存在的时候则读取原始数据
             video_mark.org_show = True
 
-        video_datas = video_mark.loading_data((1280,720))
+        video_mark.loading_data([(300,300),(1280,720)])
         video_mark.show()

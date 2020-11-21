@@ -29,7 +29,8 @@ def video_load(path,resize = None):
         if not ret:
             break
         if not resize is None:
-            frame = cv2.resize(frame,resize)
+            for s in resize:
+                frame = cv2.resize(frame,s)
         video_datas.append(frame)
     return video_datas
 
@@ -38,10 +39,11 @@ def get_file_name(file_path):
     return file_name
 
 def label_load(path,shape = None):
+    total_labels = {}
     if not os.path.exists(path):
         print("修改后的label文件不存在")
-        return
-    total_labels={}
+        return total_labels
+
     with open(path,"r",encoding="utf-8") as f:
         readlines = f.readlines()
         labels = []
