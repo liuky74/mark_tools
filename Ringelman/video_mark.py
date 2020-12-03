@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
     par_w = ParWindow()
 
-
+    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], np.float32)
     video_idx = 0
     for video_file_path in video_file_list:
         par_w.done = False
@@ -201,6 +201,7 @@ if __name__ == '__main__':
                 if par_w.done:
                     break
                 if frame_idx in video_labels.keys():
+                    video_data = cv2.filter2D(video_data, -1, kernel=kernel)
                     par_w.show(img=video_data,label=video_labels[frame_idx])
 
 
