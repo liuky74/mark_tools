@@ -37,24 +37,29 @@ class CBoxRingelman(ttk.Combobox):
 
     def get_threshold_precent(self,img_HSV, points):
         if len(points) < 4:
-            return
+            return None
         precents = np.empty(11, np.float)
         points = np.array(points)
         mask = np.zeros(img_HSV.shape[:2], dtype=np.uint8)
         cv2.fillConvexPoly(mask, points, 255)
         pixels = img_HSV[mask > 0][:, 2]
+        if len(pixels)<=0:
+            return None
         for idx in range(11):
             precents[idx] = np.percentile(pixels, int((idx) * 10))
         return precents
 
     def calculate_level(self,img,points):
+        level = "-1"
         if len(points)<4:
-            return "-1"
+            return level
         img_HSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         precent = self.get_threshold_precent(img_HSV, points)
+        if precent is None:
+            return level
         diff = np.inf
-        level = "-1"
+
         for (level_,precents_) in self.levels.items():
             if len(precents_)<=0:
                 continue

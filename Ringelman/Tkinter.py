@@ -18,7 +18,6 @@ class ShowCanvas(tk.Canvas):
         self.move_point = []
         self.img_handlers=[] #保存canvas生成图片的句柄
 
-
     def points_clear(self):
         self.calib_box = []
         self.move_point = []
@@ -62,11 +61,10 @@ class MainWindow(tk.Frame):
         self.frame = np.zeros((720,1280,3),np.uint8)*255
         self.show_runing=False
         self.detect_module = CarDetect(top = self,output_size = (1280,720))
-
         self.init(master)
 
-    def init(self,master):
-        self.bind_all("<KeyPress>",self.key_press_process)
+    def init(self,master):#初始化组件
+        self.bind_all("<KeyPress>", self.key_press_handler)
 
         self.rbtn_var = tk.IntVar()
         self.rbtn_var.set(0)
@@ -75,26 +73,33 @@ class MainWindow(tk.Frame):
         self.rbtn_rectangle = tk.Radiobutton(master,text = 'dynamic',variable = self.rbtn_var,value = 1,command = self.rbtn_handler)
         self.rbtn_rectangle.place(x=10,y=170)
 
+
         self.btn_open_file = tk.Button(master,text="打开文件",command = self.open_file,padx=20,pady = 0)
         self.btn_open_file.place(x=10,y=10)
-        self.btn_open_file = tk.Button(master, text="打开摄像头", command=self.open_camera, padx=12, pady=0)
-        self.btn_open_file.place(x=110, y=10)
-        self.btn_open_file = tk.Button(master, text="校准", command=self.carlibration, padx=30, pady=0)
-        self.btn_open_file.place(x=10, y=75)
-        self.btn_open_file = tk.Button(master, text="清除", command=self.pop_rgm_feature, padx=0, pady=0)
-        self.btn_open_file.place(x=180, y=45)
-        self.btn_open_file = tk.Button(master, text="初始化", command=self.clear_rgm_feature, padx=24, pady=0)
-        self.btn_open_file.place(x=110, y=75)
-        self.btn_open_file = tk.Button(master, text="保存校准文件", command=self.save_rgm_feature, padx=56, pady=0)
-        self.btn_open_file.place(x=10, y=105)
+        self.btn_open_camera = tk.Button(master, text="打开摄像头", command=self.open_camera, padx=12, pady=0)
+        self.btn_open_camera.place(x=110, y=10)
+        self.btn_calibration = tk.Button(master, text="校准", command=self.carlibration, padx=30, pady=0)
+        self.btn_calibration.place(x=10, y=75)
+        self.btn_pop_rgm_feature = tk.Button(master, text="清除", command=self.pop_rgm_feature, padx=0, pady=0)
+        self.btn_pop_rgm_feature.place(x=180, y=45)
+        self.btn_clear_rgm_feature = tk.Button(master, text="初始化", command=self.clear_rgm_feature, padx=24, pady=0)
+        self.btn_clear_rgm_feature.place(x=110, y=75)
+        self.btn_save_rgm_feature = tk.Button(master, text="保存校准文件", command=self.save_rgm_feature, padx=56, pady=0)
+        self.btn_save_rgm_feature.place(x=10, y=105)
+        self.btn_clear_calib_box_rel = tk.Button(master, text="初始化动态检测框", command=self.clear_calib_box_rel, padx=0, pady=0)
+        self.btn_clear_calib_box_rel.place(x=110, y=170)
 
         self.cbox_ringelman = CBoxRingelman(master)
         self.cbox_ringelman.place(x = 10,y = 45)
 
         self.show_canvas = ShowCanvas(master,top = self, width = 1280, height = 720)
         self.show_canvas.place(x =1500 - 1280, y=768 - 720)
-        self.show_canvas_show()
+        self.show_canvas_update()
         self.show_runing = True
+        self.show_model = None
+
+    def clear_calib_box_rel(self):
+        self.detect_module.calib_box_rel.clear()
 
     def rbtn_handler(self):#切换模式时自动清理canvas中的点数据
         self.show_canvas.points_clear()
@@ -109,7 +114,7 @@ class MainWindow(tk.Frame):
         self.cbox_ringelman.save()
 
 
-    def key_press_process(self,event):
+    def key_press_handler(self, event):
         if event.keysym == 'r':
             if len(self.show_canvas.calib_box) > 0:
                 self.show_canvas.calib_box.pop()
@@ -126,50 +131,60 @@ class MainWindow(tk.Frame):
             print(event.keysym)
             return
 
-    def show_canvas_show(self):
+    def show_canvas_update(self):
         if self.cap is None:
             pass
         else:
+            # 更新画面
             if self.pause:
                pass
             else:
                 ret,frame = self.cap.read()
                 if not ret:
-                    self.cap = cv2.VideoCapture(self.file_path)
+                    if self.show_model == "file":
+                        self.cap = cv2.VideoCapture(self.file_path)
+                    elif self.show_model == "camera":
+                        self.cap = cv2.VideoCapture("rtsp://admin:2Fenglan@192.168.0.231:554/h264/ch1/main/av_stream")
+                    else:
+                        messagebox.showinfo("错误",message="错误的读取模式,应为file或camera")
+                        self.show_runing = False
+                        self.show_model = None
+                        return
                     ret,frame = self.cap.read()
                     if not ret:
-                        messagebox.showinfo("错误",message="读取文件失败")
+                        messagebox.showinfo("错误",message="读取视频流失败")
                         self.show_runing = False
+                        self.show_model = None
                         return
                 self.frame = cv2.resize(frame,(1280,720))
-        # 调用模型找出车辆
-        self.detect_module(self.frame)
-        # 使用opencv画图
-        show_frame= self.frame.copy()
-        self.show_canvas.draw_box(show_frame)
-        self.detect_module.draw_box(show_frame)
+            # 调用模型找出车辆
+            self.detect_module(self.frame)
 
-        level = self.cbox_ringelman.calculate_level(self.frame, self.show_canvas.calib_box)
-        self.show_canvas.draw_text(show_frame,"|Level:%s|"%level,(20,40),1)
-        self.show_canvas.show_img = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(show_frame,cv2.COLOR_BGR2RGB)))
-        self.show_canvas.img_handlers.append(self.show_canvas.create_image(0, 0, anchor = tk.NW, image = self.show_canvas.show_img))
+            # 使用opencv画图
+            show_frame= self.frame.copy()
+            self.show_canvas.draw_box(show_frame)
+            self.detect_module.draw_box(show_frame)
 
-        self.update_idletasks()
-        self.update()
-        self.show_canvas.img_handlers_clear()
-        self.show_canvas.after(int(1), self.show_canvas_show)
+            level = self.cbox_ringelman.calculate_level(self.frame, self.show_canvas.calib_box)
+            self.show_canvas.draw_text(show_frame,"|Level:%s|"%level,(20,40),1)
+            self.show_canvas.show_img = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(show_frame,cv2.COLOR_BGR2RGB)))
+            self.show_canvas.img_handlers.append(self.show_canvas.create_image(0, 0, anchor = tk.NW, image = self.show_canvas.show_img))
 
-        print(self.rbtn_var.get())
+            self.update_idletasks()
+            self.update()
+            self.show_canvas.img_handlers_clear()
+        self.show_canvas.after(int(1), self.show_canvas_update)
 
 
     def open_camera(self):
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture("rtsp://admin:2Fenglan@192.168.0.231:554/h264/ch1/main/av_stream")
         if not self.cap.isOpened():
             messagebox.showinfo("提示",message="打开摄像头失败")
             self.cap = None
         else:
+            self.show_model = "camera"
             if not self.show_runing:
-                self.show_canvas_show()
+                self.show_canvas_update()
                 self.show_runing = True
 
     def open_file(self):
@@ -180,8 +195,9 @@ class MainWindow(tk.Frame):
             messagebox.showinfo("提示",message="打开视频文件失败")
             self.cap = None
         else:
+            self.show_model = "file"
             if not self.show_runing:
-                self.show_canvas_show()
+                self.show_canvas_update()
                 self.show_runing = True
 
 

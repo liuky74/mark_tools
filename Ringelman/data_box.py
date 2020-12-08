@@ -21,3 +21,7 @@ class DataBox():
             self.polygons.extend(datas)
         else:
             raise Exception("错误的类型数据")
+
+    def clear(self):
+        self.rectangles.clear()
+        self.polygons.clear()

@@ -33,7 +33,6 @@ class CarDetect():
         logit = self.model(input_data_cuda)
         pred = self.pred_trans(logit)
         self.pred_res = pred
-        return pred
 
     def draw_box(self,img):
         if len(self.pred_res[0])<=0 or len(self.pred_res[1])<=0:
@@ -54,10 +53,13 @@ class CarDetect():
                 else:
                     color = (0, 255, 255)
                 cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), color)
+                level = "-1"
                 if len(self.calib_box_rel)>=4:
                     calib_box = []
                     for point_idx,point in enumerate(self.calib_box_rel):  # 按照lt,lb,rb,rt的顺序排列
                         calib_box.append((box[0]+int(point[0]*w),box[1]+int(point[1]*h)))
                     for point_idx in range(4):
                         cv2.line(img,calib_box[point_idx],calib_box[point_idx-1],color)
-                cv2.putText(img, "car", (box[0], box[1]), cv2.FONT_HERSHEY_COMPLEX, 1, color, 1)
+                    #计算林格曼黑度
+                    level = self.top.cbox_ringelman.calculate_level(img,calib_box)
+                cv2.putText(img, "car|%s"%level, (box[0], box[1]), cv2.FONT_HERSHEY_COMPLEX, 1, color, 1)
